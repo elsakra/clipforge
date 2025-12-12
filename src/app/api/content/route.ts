@@ -1,15 +1,15 @@
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/supabase/auth';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 // Get all content for user
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -17,22 +17,6 @@ export async function GET() {
     }
 
     const supabase = createAdminClient();
-    
-    // Get user
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!user) {
-      return NextResponse.json({
-        success: true,
-        contents: [],
-      });
-    }
-
-    const dbUserId = (user as any).id;
 
     // Get contents with clip count
     const { data: contents, error } = await (supabase
@@ -41,7 +25,7 @@ export async function GET() {
         *,
         clips(count)
       `)
-      .eq('user_id', dbUserId)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -53,7 +37,7 @@ export async function GET() {
     }
 
     // Transform data
-    const transformedContents = contents.map((content) => ({
+    const transformedContents = contents.map((content: any) => ({
       ...content,
       clipCount: content.clips?.[0]?.count || 0,
       clips: undefined,
@@ -75,9 +59,9 @@ export async function GET() {
 // Delete content
 export async function DELETE(request: Request) {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -95,28 +79,12 @@ export async function DELETE(request: Request) {
     }
 
     const supabase = createAdminClient();
-    
-    // Get user
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
-
-    const dbUserId = (user as any).id;
 
     // Delete content (cascades to clips and generated content)
     const { error } = await (supabase.from('contents') as any)
       .delete()
       .eq('id', contentId)
-      .eq('user_id', dbUserId);
+      .eq('user_id', user.id);
 
     if (error) {
       console.error('Error deleting content:', error);
@@ -135,5 +103,3 @@ export async function DELETE(request: Request) {
     );
   }
 }
-
-

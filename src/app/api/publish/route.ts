@@ -1,15 +1,15 @@
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/supabase/auth';
 import { postTweet, postThread, refreshTwitterToken } from '@/lib/social/twitter';
-import { createLinkedInPost, getLinkedInUser } from '@/lib/social/linkedin';
+import { createLinkedInPost } from '@/lib/social/linkedin';
 
 // Publish content to social platforms
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -27,20 +27,6 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient();
-    
-    // Get user
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
 
     // Get generated content
     const { data: generatedContent } = await supabase
@@ -95,7 +81,7 @@ export async function POST(request: Request) {
                 token_expires_at: new Date(Date.now() + tokens.expiresIn * 1000).toISOString(),
               })
               .eq('id', socialAccount.id);
-          } catch (error) {
+          } catch {
             return NextResponse.json(
               { error: 'Failed to refresh token. Please reconnect your account.' },
               { status: 401 }
@@ -164,5 +150,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
-

@@ -1,13 +1,13 @@
-import { auth, currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/supabase/auth';
 import { createCheckoutSession, createStripeCustomer, STRIPE_PRICES } from '@/lib/stripe';
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -33,23 +33,21 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient();
-    const clerkUser = await currentUser();
 
-    // Get or create user
-    let { data: user } = await supabase
+    // Get or create user in our database
+    let { data: dbUser } = await supabase
       .from('users')
       .select('*')
-      .eq('clerk_id', userId)
+      .eq('id', user.id)
       .single();
 
-    if (!user) {
+    if (!dbUser) {
       // Create user
       const { data: newUser, error: createError } = await supabase
         .from('users')
         .insert({
-          clerk_id: userId,
-          email: clerkUser?.emailAddresses[0]?.emailAddress || '',
-          name: clerkUser?.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : null,
+          id: user.id,
+          email: user.email || '',
         })
         .select()
         .single();
@@ -57,16 +55,16 @@ export async function POST(request: Request) {
       if (createError) {
         throw createError;
       }
-      user = newUser;
+      dbUser = newUser;
     }
 
     // Get or create Stripe customer
-    let stripeCustomerId = user.stripe_customer_id;
+    let stripeCustomerId = dbUser.stripe_customer_id;
 
     if (!stripeCustomerId) {
       stripeCustomerId = await createStripeCustomer(
-        user.email,
-        user.name || undefined
+        dbUser.email,
+        dbUser.name || undefined
       );
 
       // Update user with Stripe customer ID
@@ -93,5 +91,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
-

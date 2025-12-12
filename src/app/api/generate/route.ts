@@ -1,14 +1,14 @@
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/supabase/auth';
 import { generateSocialContent, generateQuotes } from '@/lib/ai/openai';
 
 // Generate content for a processed video
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -32,20 +32,6 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient();
-    
-    // Get user
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
 
     // Get content with transcription
     const { data: content, error: contentError } = await supabase
@@ -146,9 +132,9 @@ export async function POST(request: Request) {
 // Regenerate specific content
 export async function PUT(request: Request) {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -166,20 +152,6 @@ export async function PUT(request: Request) {
     }
 
     const supabase = createAdminClient();
-    
-    // Get user
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
 
     // Get generated content with source
     const { data: generatedContent } = await supabase
@@ -196,7 +168,7 @@ export async function PUT(request: Request) {
       );
     }
 
-    const sourceContent = generatedContent.contents;
+    const sourceContent = generatedContent.contents as { transcription?: string; transcription_segments?: unknown[] } | null;
     if (!sourceContent || !sourceContent.transcription) {
       return NextResponse.json(
         { error: 'Source content not found' },
@@ -207,7 +179,7 @@ export async function PUT(request: Request) {
     // Regenerate using GPT-4
     const { generateSocialContent } = await import('@/lib/ai/openai');
     const segments = sourceContent.transcription_segments || [];
-    const highlights = segments.filter((s: { isHighlight?: boolean }) => s.isHighlight);
+    const highlights = (segments as { isHighlight?: boolean }[]).filter((s) => s.isHighlight);
 
     const regenerated = await generateSocialContent(
       customPrompt 
@@ -216,7 +188,7 @@ export async function PUT(request: Request) {
       highlights,
       {
         platforms: [generatedContent.platform],
-        toneOfVoice: generatedContent.metadata?.toneOfVoice || 'professional',
+        toneOfVoice: (generatedContent.metadata as { toneOfVoice?: string })?.toneOfVoice || 'professional',
         includeHashtags: true,
         includeEmojis: true,
       }
@@ -228,7 +200,7 @@ export async function PUT(request: Request) {
         .update({
           content: regenerated[0].content,
           metadata: {
-            ...generatedContent.metadata,
+            ...(generatedContent.metadata as object),
             hashtags: regenerated[0].hashtags,
             regeneratedAt: new Date().toISOString(),
           },
@@ -259,5 +231,3 @@ export async function PUT(request: Request) {
     );
   }
 }
-
-

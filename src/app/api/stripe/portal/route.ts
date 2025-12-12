@@ -1,13 +1,13 @@
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/supabase/auth';
 import { createPortalSession } from '@/lib/stripe';
 
 export async function POST() {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -17,13 +17,13 @@ export async function POST() {
     const supabase = createAdminClient();
 
     // Get user
-    const { data: user } = await supabase
+    const { data: dbUser } = await supabase
       .from('users')
       .select('stripe_customer_id')
-      .eq('clerk_id', userId)
+      .eq('id', user.id)
       .single();
 
-    if (!user?.stripe_customer_id) {
+    if (!dbUser?.stripe_customer_id) {
       return NextResponse.json(
         { error: 'No billing account found' },
         { status: 404 }
@@ -32,7 +32,7 @@ export async function POST() {
 
     // Create portal session
     const portalUrl = await createPortalSession(
-      user.stripe_customer_id,
+      dbUser.stripe_customer_id,
       `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings?tab=billing`
     );
 
@@ -45,5 +45,3 @@ export async function POST() {
     );
   }
 }
-
-

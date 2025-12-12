@@ -1,14 +1,14 @@
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/supabase/auth';
 import { inngest } from '@/lib/inngest/client';
 
 // Start processing a content item
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -26,20 +26,6 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient();
-    
-    // Get user
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
 
     // Get content
     const { data: content, error: contentError } = await supabase
@@ -117,9 +103,9 @@ export async function POST(request: Request) {
 // Get processing status for a content item
 export async function GET(request: Request) {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -137,20 +123,6 @@ export async function GET(request: Request) {
     }
 
     const supabase = createAdminClient();
-    
-    // Get user
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
 
     // Get content with clips count
     const { data: content, error } = await supabase
@@ -176,7 +148,7 @@ export async function GET(request: Request) {
       title: content.title,
       duration: content.duration,
       hasTranscription: !!content.transcription,
-      clipsCount: content.clips?.[0]?.count || 0,
+      clipsCount: (content.clips as unknown as { count: number }[])?.[0]?.count || 0,
     });
   } catch (error) {
     console.error('Get process status error:', error);

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useUser } from '@clerk/nextjs';
+import { createClient } from '@/lib/supabase/client';
 import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,17 +28,27 @@ import {
 import { toast } from 'sonner';
 
 function SettingsContent() {
-  const { user, isLoaded } = useUser();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState('account');
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<{
     plan: string;
     status: string;
     currentPeriodEnd: string | null;
   } | null>(null);
   const [isLoadingPortal, setIsLoadingPortal] = useState(false);
+  const supabase = createClient();
 
   useEffect(() => {
+    // Get user email
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email || null);
+      }
+    };
+    getUser();
+
     // Check for success param
     if (searchParams.get('success')) {
       toast.success('Subscription activated! Welcome to ClipForge Pro.');
@@ -53,7 +63,7 @@ function SettingsContent() {
 
     // Fetch subscription info
     fetchSubscription();
-  }, [searchParams]);
+  }, [searchParams, supabase.auth]);
 
   const fetchSubscription = async () => {
     try {
@@ -75,7 +85,7 @@ function SettingsContent() {
       if (data.url) {
         window.location.href = data.url;
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to open billing portal');
     } finally {
       setIsLoadingPortal(false);
@@ -84,7 +94,7 @@ function SettingsContent() {
 
   const connectedAccounts = [
     { platform: 'Twitter', icon: Twitter, connected: false, username: null },
-    { platform: 'LinkedIn', icon: Linkedin, connected: true, username: 'john-doe' },
+    { platform: 'LinkedIn', icon: Linkedin, connected: false, username: null },
     { platform: 'Instagram', icon: Instagram, connected: false, username: null },
   ];
 
@@ -125,28 +135,18 @@ function SettingsContent() {
                 <CardDescription>Update your account details</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>First Name</Label>
-                    <Input defaultValue={user?.firstName || ''} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Last Name</Label>
-                    <Input defaultValue={user?.lastName || ''} />
-                  </div>
-                </div>
                 <div className="space-y-2">
                   <Label>Email</Label>
                   <Input
                     type="email"
-                    defaultValue={user?.emailAddresses[0]?.emailAddress || ''}
+                    defaultValue={userEmail || ''}
                     disabled
                   />
                   <p className="text-xs text-muted-foreground">
-                    Email is managed by your authentication provider
+                    Email is used for authentication via OTP
                   </p>
                 </div>
-                <Button>Save Changes</Button>
+                <Button disabled>Save Changes</Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -322,22 +322,12 @@ function SettingsContent() {
               <CardContent className="space-y-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">Two-Factor Authentication</p>
+                    <p className="font-medium">Email OTP Authentication</p>
                     <p className="text-sm text-muted-foreground">
-                      Add an extra layer of security to your account
+                      You sign in using a one-time code sent to your email
                     </p>
                   </div>
-                  <Button variant="outline">Enable 2FA</Button>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Active Sessions</p>
-                    <p className="text-sm text-muted-foreground">
-                      Manage devices where you&apos;re logged in
-                    </p>
-                  </div>
-                  <Button variant="outline">View Sessions</Button>
+                  <Badge variant="secondary">Enabled</Badge>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
@@ -365,5 +355,3 @@ export default function SettingsPage() {
     </Suspense>
   );
 }
-
-

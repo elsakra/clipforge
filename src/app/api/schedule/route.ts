@@ -1,13 +1,13 @@
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/supabase/auth';
 
 // Get scheduled posts
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -15,20 +15,6 @@ export async function GET() {
     }
 
     const supabase = createAdminClient();
-    
-    // Get user
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!user) {
-      return NextResponse.json({
-        success: true,
-        posts: [],
-      });
-    }
 
     // Get scheduled posts with generated content
     const { data: posts, error } = await supabase
@@ -51,7 +37,7 @@ export async function GET() {
     // Transform data
     const transformedPosts = posts.map((post) => ({
       id: post.id,
-      content: post.generated_contents?.content || '',
+      content: (post.generated_contents as { content?: string } | null)?.content || '',
       platform: post.platform,
       scheduledAt: post.scheduled_at,
       status: post.status,
@@ -74,9 +60,9 @@ export async function GET() {
 // Create scheduled post
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -94,20 +80,6 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient();
-    
-    // Get user
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
 
     let contentId = generatedContentId;
 
@@ -174,9 +146,9 @@ export async function POST(request: Request) {
 // Delete scheduled post
 export async function DELETE(request: Request) {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -194,20 +166,6 @@ export async function DELETE(request: Request) {
     }
 
     const supabase = createAdminClient();
-    
-    // Get user
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
 
     // Delete scheduled post
     const { error } = await supabase
@@ -233,5 +191,3 @@ export async function DELETE(request: Request) {
     );
   }
 }
-
-

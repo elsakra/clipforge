@@ -1,12 +1,12 @@
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/supabase/auth';
 
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -16,13 +16,13 @@ export async function GET() {
     const supabase = createAdminClient();
 
     // Get user with subscription
-    const { data: user } = await supabase
+    const { data: dbUser } = await supabase
       .from('users')
       .select('plan, stripe_subscription_id')
-      .eq('clerk_id', userId)
+      .eq('id', user.id)
       .single();
 
-    if (!user) {
+    if (!dbUser) {
       return NextResponse.json({
         success: true,
         subscription: {
@@ -35,11 +35,11 @@ export async function GET() {
 
     // Get subscription details if exists
     let subscription = null;
-    if (user.stripe_subscription_id) {
+    if (dbUser.stripe_subscription_id) {
       const { data: sub } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('stripe_subscription_id', user.stripe_subscription_id)
+        .eq('stripe_subscription_id', dbUser.stripe_subscription_id)
         .single();
       
       if (sub) {
@@ -55,7 +55,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       subscription: subscription || {
-        plan: user.plan || 'free',
+        plan: dbUser.plan || 'free',
         status: 'active',
         currentPeriodEnd: null,
       },
@@ -68,5 +68,3 @@ export async function GET() {
     );
   }
 }
-
-
