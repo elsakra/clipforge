@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "regions": ["iad1"],
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 60
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/publish-scheduled",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/reset-usage",
+      "schedule": "0 0 1 * *"
+    }
+  ]
+}
+
+
