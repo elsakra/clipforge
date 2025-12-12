@@ -24,18 +24,20 @@ export async function GET(request: Request) {
     const supabase = createAdminClient();
     
     // Get user
-    const { data: user } = await supabase
+    const { data: user, error: userError } = await supabase
       .from('users')
       .select('id')
       .eq('clerk_id', userId)
       .single();
 
-    if (!user) {
+    if (userError || !user) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
+
+    const userRecord = user as { id: string };
 
     // Build query
     let query = supabase
@@ -48,7 +50,7 @@ export async function GET(request: Request) {
           file_url
         )
       `)
-      .eq('user_id', user.id)
+      .eq('user_id', userRecord.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -110,25 +112,27 @@ export async function POST(request: Request) {
     const supabase = createAdminClient();
     
     // Get user
-    const { data: user } = await supabase
+    const { data: user, error: userErr } = await supabase
       .from('users')
       .select('id')
       .eq('clerk_id', userId)
       .single();
 
-    if (!user) {
+    if (userErr || !user) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
 
+    const dbUser = user as { id: string };
+
     // Verify content belongs to user
     const { data: content } = await supabase
       .from('contents')
       .select('id, file_url')
       .eq('id', contentId)
-      .eq('user_id', user.id)
+      .eq('user_id', dbUser.id)
       .single();
 
     if (!content) {
@@ -138,12 +142,14 @@ export async function POST(request: Request) {
       );
     }
 
+    const contentRecord = content as { id: string; file_url: string };
+
     // Create clip record
     const { data: clip, error: clipError } = await supabase
       .from('clips')
       .insert({
         content_id: contentId,
-        user_id: user.id,
+        user_id: dbUser.id,
         title,
         start_time: startTime,
         end_time: endTime,
@@ -168,10 +174,10 @@ export async function POST(request: Request) {
         await inngest.send({
           name: 'clip/generation.requested',
           data: {
-            clipId: clip.id,
+            clipId: (clip as { id: string }).id,
             contentId,
-            userId: user.id,
-            sourceUrl: content.file_url,
+            userId: dbUser.id,
+            sourceUrl: contentRecord.file_url,
             startTime,
             endTime,
             aspectRatio,
@@ -225,18 +231,20 @@ export async function PUT(request: Request) {
     const supabase = createAdminClient();
     
     // Get user
-    const { data: user } = await supabase
+    const { data: userPut, error: userPutErr } = await supabase
       .from('users')
       .select('id')
       .eq('clerk_id', userId)
       .single();
 
-    if (!user) {
+    if (userPutErr || !userPut) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
+
+    const putUser = userPut as { id: string };
 
     // Get clip with content
     const { data: clip } = await supabase
@@ -248,7 +256,7 @@ export async function PUT(request: Request) {
         )
       `)
       .eq('id', clipId)
-      .eq('user_id', user.id)
+      .eq('user_id', putUser.id)
       .single();
 
     if (!clip) {
@@ -258,8 +266,10 @@ export async function PUT(request: Request) {
       );
     }
 
+    const clipRecord = clip as { id: string; content_id: string; aspect_ratio: string; start_time: number; end_time: number; contents: { file_url: string } };
+
     // Update aspect ratio if provided
-    if (aspectRatio && aspectRatio !== clip.aspect_ratio) {
+    if (aspectRatio && aspectRatio !== clipRecord.aspect_ratio) {
       await supabase
         .from('clips')
         .update({ aspect_ratio: aspectRatio })
@@ -276,18 +286,18 @@ export async function PUT(request: Request) {
     await inngest.send({
       name: 'clip/generation.requested',
       data: {
-        clipId: clip.id,
-        contentId: clip.content_id,
-        userId: user.id,
-        sourceUrl: clip.contents.file_url,
-        startTime: clip.start_time,
-        endTime: clip.end_time,
-        aspectRatio: aspectRatio || clip.aspect_ratio,
+        clipId: clipRecord.id,
+        contentId: clipRecord.content_id,
+        userId: putUser.id,
+        sourceUrl: clipRecord.contents.file_url,
+        startTime: clipRecord.start_time,
+        endTime: clipRecord.end_time,
+        aspectRatio: aspectRatio || clipRecord.aspect_ratio,
       },
     });
 
-    return NextResponse.json({
-      success: true,
+      return NextResponse.json({
+        success: true,
       message: 'Clip generation started',
     });
   } catch (error) {
@@ -324,25 +334,27 @@ export async function DELETE(request: Request) {
     const supabase = createAdminClient();
     
     // Get user
-    const { data: user } = await supabase
+    const { data: userDel, error: userDelErr } = await supabase
       .from('users')
       .select('id')
       .eq('clerk_id', userId)
       .single();
 
-    if (!user) {
+    if (userDelErr || !userDel) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
 
+    const delUser = userDel as { id: string };
+
     // Delete clip
     const { error } = await supabase
       .from('clips')
       .delete()
       .eq('id', clipId)
-      .eq('user_id', user.id);
+      .eq('user_id', delUser.id);
 
     if (error) {
       console.error('Error deleting clip:', error);
