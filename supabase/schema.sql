@@ -4,6 +4,13 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Drop existing functions first (to allow re-running)
+DROP FUNCTION IF EXISTS increment_usage(uuid) CASCADE;
+DROP FUNCTION IF EXISTS reset_monthly_usage() CASCADE;
+DROP FUNCTION IF EXISTS get_user_stats(uuid) CASCADE;
+DROP FUNCTION IF EXISTS handle_new_user() CASCADE;
+DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+
 -- Users table (linked to Supabase Auth)
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
