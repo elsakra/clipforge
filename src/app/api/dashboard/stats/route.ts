@@ -1,12 +1,12 @@
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/supabase/auth';
 
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -15,14 +15,14 @@ export async function GET() {
 
     const supabase = createAdminClient();
     
-    // Get user
-    const { data: user } = await supabase
+    // Get user record
+    const { data: dbUser } = await supabase
       .from('users')
       .select('id, plan, usage_this_month, usage_limit')
-      .eq('clerk_id', userId)
+      .eq('id', user.id)
       .single();
 
-    if (!user) {
+    if (!dbUser) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
@@ -89,7 +89,7 @@ export async function GET() {
       status: item.status,
       thumbnailUrl: item.thumbnail_url,
       createdAt: item.created_at,
-      clipsCount: item.clips?.[0]?.count || 0,
+      clipsCount: (item.clips as any)?.[0]?.count || 0,
     })) || [];
 
     return NextResponse.json({
@@ -99,9 +99,9 @@ export async function GET() {
       timeSaved,
       recentContent,
       usage: {
-        current: user.usage_this_month,
-        limit: user.usage_limit,
-        plan: user.plan,
+        current: dbUser.usage_this_month,
+        limit: dbUser.usage_limit,
+        plan: dbUser.plan,
       },
     });
   } catch (error) {
@@ -112,4 +112,3 @@ export async function GET() {
     );
   }
 }
-

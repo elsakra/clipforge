@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -26,33 +25,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider
-      appearance={{
-        variables: {
-          colorPrimary: "#14b8a6",
-          colorText: "#f8fafc",
-          colorBackground: "#1e1b4b",
-          colorInputBackground: "#312e81",
-          colorInputText: "#f8fafc",
-          borderRadius: "0.75rem",
-        },
-        elements: {
-          formButtonPrimary: "bg-primary hover:bg-primary/90",
-          card: "bg-card shadow-xl",
-          headerTitle: "text-foreground",
-          headerSubtitle: "text-muted-foreground",
-          socialButtonsBlockButton: "bg-secondary hover:bg-secondary/80",
-          formFieldInput: "bg-input border-border",
-          footerActionLink: "text-primary hover:text-primary/80",
-        },
-      }}
-    >
-      <html lang="en" className="dark">
-        <body className="min-h-screen antialiased">
-          {children}
-          <Toaster richColors position="bottom-right" />
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en" className="dark">
+      <body className="min-h-screen antialiased">
+        {children}
+        <Toaster richColors position="bottom-right" />
+      </body>
+    </html>
   );
 }

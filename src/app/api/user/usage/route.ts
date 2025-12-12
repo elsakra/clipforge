@@ -1,12 +1,12 @@
-import { auth, currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/supabase/auth';
 
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -15,73 +15,40 @@ export async function GET() {
 
     const supabase = createAdminClient();
     
-    // Try to get existing user
-    let { data: user, error } = await supabase
+    const { data: dbUser, error } = await supabase
       .from('users')
-      .select('*')
-      .eq('clerk_id', userId)
+      .select('plan, usage_this_month, usage_limit')
+      .eq('id', user.id)
       .single();
 
-    // If user doesn't exist, create them
-    if (error && error.code === 'PGRST116') {
-      const clerkUser = await currentUser();
-      
-      const { data: newUser, error: createError } = await supabase
-        .from('users')
-        .insert({
-          clerk_id: userId,
-          email: clerkUser?.emailAddresses[0]?.emailAddress || 'unknown@example.com',
-          name: clerkUser?.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ''}`.trim() : null,
-          image_url: clerkUser?.imageUrl || null,
+    if (error) {
+      // User might not exist in our table yet
+      if (error.code === 'PGRST116') {
+        return NextResponse.json({
+          success: true,
+          usage: {
+            current: 0,
+            limit: 3,
           plan: 'free',
-          usage_limit: 3,
-          usage_this_month: 0,
-        })
-        .select()
-        .single();
-
-      if (createError) {
-        console.error('Error creating user:', createError);
-        return NextResponse.json(
-          { error: 'Failed to create user' },
-          { status: 500 }
-        );
+          },
+        });
       }
-
-      user = newUser;
-    } else if (error) {
-      console.error('Error fetching user:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch user data' },
-        { status: 500 }
-      );
+      throw error;
     }
-
-    // Calculate usage limits based on plan
-    const planLimits: Record<string, number> = {
-      free: 3,
-      starter: 10,
-      pro: 50,
-      agency: -1, // unlimited
-    };
-
-    const limit = planLimits[user?.plan || 'free'] || 3;
 
     return NextResponse.json({
       success: true,
       usage: {
-        current: user?.usage_this_month || 0,
-        limit,
-        plan: user?.plan || 'free',
+        current: dbUser.usage_this_month,
+        limit: dbUser.plan === 'agency' ? -1 : dbUser.usage_limit,
+        plan: dbUser.plan,
       },
     });
   } catch (error) {
-    console.error('Usage fetch error:', error);
+    console.error('User usage error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     );
   }
 }
-
-

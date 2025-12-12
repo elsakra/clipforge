@@ -1,13 +1,13 @@
-import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/supabase/auth';
 import { generateUploadSignature } from '@/lib/storage/cloudinary';
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -39,10 +39,10 @@ export async function POST(request: Request) {
 
     // Get user from database to check plan limits
     const supabase = createAdminClient();
-    const { data: user, error: userError } = await supabase
+    const { data: dbUser, error: userError } = await supabase
       .from('users')
       .select('*')
-      .eq('clerk_id', userId)
+      .eq('id', user.id)
       .single();
 
     if (userError && userError.code !== 'PGRST116') {
@@ -54,13 +54,13 @@ export async function POST(request: Request) {
     }
 
     // Create user if doesn't exist
-    let dbUser = user;
-    if (!dbUser) {
+    let currentUser = dbUser;
+    if (!currentUser) {
       const { data: newUser, error: createError } = await supabase
         .from('users')
         .insert({
-          clerk_id: userId,
-          email: 'pending@clipforge.ai', // Will be updated by webhook
+          id: user.id,
+          email: user.email || '',
           plan: 'free',
           usage_limit: 3,
           usage_this_month: 0,
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
           { status: 500 }
         );
       }
-      dbUser = newUser;
+      currentUser = newUser;
     }
 
     // Check file size limit based on plan
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       agency: 5 * 1024 * 1024 * 1024, // 5 GB
     };
     
-    const plan = dbUser.plan as string;
+    const plan = currentUser.plan as string;
     const maxSize = maxFileSizes[plan] || maxFileSizes.free;
     if (fileSize > maxSize) {
       return NextResponse.json(
@@ -96,51 +96,34 @@ export async function POST(request: Request) {
     }
 
     // Check usage limit
-    if (dbUser.usage_this_month >= dbUser.usage_limit && plan !== 'agency') {
+    if (currentUser.usage_this_month >= currentUser.usage_limit && plan !== 'agency') {
       return NextResponse.json(
         { error: 'You have reached your monthly content limit. Please upgrade your plan.' },
         { status: 403 }
       );
     }
 
-    // Determine storage backend
+    // Generate Cloudinary upload signature
     const hasCloudinary = !!process.env.CLOUDINARY_API_SECRET;
-    const hasR2 = !!process.env.R2_SECRET_ACCESS_KEY;
-
-    let uploadUrl: string;
+    let uploadUrl: string = '';
     let storageKey: string;
-    let uploadMethod: 'cloudinary' | 'r2' | 'direct';
     let cloudinarySignature: ReturnType<typeof generateUploadSignature> | null = null;
 
     if (hasCloudinary) {
-      // Use Cloudinary signed upload
-      uploadMethod = 'cloudinary';
-      const folder = `clipforge/${dbUser.id}`;
+      const folder = `clipforge/${user.id}`;
       cloudinarySignature = generateUploadSignature(folder, 'video');
       uploadUrl = `https://api.cloudinary.com/v1_1/${cloudinarySignature.cloudName}/auto/upload`;
-      storageKey = folder; // Will be updated after upload with actual public_id
-    } else if (hasR2) {
-      // Use R2 pre-signed URL
-      uploadMethod = 'r2';
-      const { getUploadUrl, generateStorageKey, getFileCategory } = await import('@/lib/storage/r2');
-      const fileCategory = getFileCategory(contentType);
-      if (!fileCategory) {
-        return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
-      }
-      storageKey = generateStorageKey(dbUser.id, fileCategory, filename);
-      uploadUrl = await getUploadUrl({ key: storageKey, contentType, expiresIn: 3600 });
+      storageKey = folder;
     } else {
-      // No storage configured - development mode
-      uploadMethod = 'direct';
-      uploadUrl = '';
-      storageKey = `dev/${dbUser.id}/${Date.now()}-${filename}`;
+      // Development mode
+      storageKey = `dev/${user.id}/${Date.now()}-${filename}`;
     }
 
     // Create content record in database
     const { data: content, error: contentError } = await supabase
       .from('contents')
       .insert({
-        user_id: dbUser.id,
+        user_id: user.id,
         title: title || filename.replace(/\.[^/.]+$/, ''),
         description,
         source_type: sourceType,
@@ -162,7 +145,7 @@ export async function POST(request: Request) {
       uploadUrl,
       contentId: content.id,
       storageKey,
-      uploadMethod,
+      uploadMethod: hasCloudinary ? 'cloudinary' : 'direct',
       cloudinarySignature,
     });
   } catch (error) {
@@ -177,9 +160,9 @@ export async function POST(request: Request) {
 // Confirm upload completion
 export async function PATCH(request: Request) {
   try {
-    const { userId } = await auth();
+    const user = await getUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -197,20 +180,6 @@ export async function PATCH(request: Request) {
     }
 
     const supabase = createAdminClient();
-    
-    // Get user
-    const { data: user } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
 
     // Update content status and file URL if provided
     const updateData: Record<string, unknown> = { status: 'processing' };
@@ -235,10 +204,7 @@ export async function PATCH(request: Request) {
     }
 
     // Increment usage count
-    await supabase
-      .from('users')
-      .update({ usage_this_month: user.id })
-      .eq('id', user.id);
+    await supabase.rpc('increment_usage', { p_user_id: user.id });
 
     // Trigger processing via Inngest
     try {
@@ -254,7 +220,6 @@ export async function PATCH(request: Request) {
       });
     } catch (inngestError) {
       console.error('Failed to trigger Inngest:', inngestError);
-      // Don't fail the request, processing can be triggered manually
     }
 
     return NextResponse.json({
