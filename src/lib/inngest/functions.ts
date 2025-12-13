@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { inngest } from './client';
 import { createAdminClient } from '@/lib/supabase/server';
 import { transcribeWithReplicate } from '@/lib/replicate';

@@ -1,9 +1,16 @@
 import OpenAI from 'openai';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy initialize OpenAI client
+let openaiInstance: OpenAI | null = null;
+
+function getOpenAI(): OpenAI {
+  if (!openaiInstance) {
+    openaiInstance = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+  return openaiInstance;
+}
 
 export interface TranscriptionSegment {
   id: string;
@@ -39,7 +46,7 @@ export async function transcribeAudio(
   const audioFile = new File([audioBlob], 'audio.mp3', { type: 'audio/mp3' });
 
   // Get detailed transcription with timestamps
-  const transcription = await openai.audio.transcriptions.create({
+  const transcription = await getOpenAI().audio.transcriptions.create({
     file: audioFile,
     model: 'whisper-1',
     language: options?.language,
@@ -74,7 +81,7 @@ export async function analyzeHighlights(
   transcription: string,
   segments: TranscriptionSegment[]
 ): Promise<TranscriptionSegment[]> {
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: 'gpt-4-turbo-preview',
     messages: [
       {
@@ -152,7 +159,7 @@ export async function generateSocialContent(
     const instruction = platformInstructions[platform];
     if (!instruction) continue;
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4-turbo-preview',
       messages: [
         {
@@ -202,7 +209,7 @@ export async function identifyClips(
   segments: TranscriptionSegment[],
   targetCount: number = 5
 ): Promise<Array<{ title: string; startIndex: number; endIndex: number; viralScore: number }>> {
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: 'gpt-4-turbo-preview',
     messages: [
       {
@@ -242,7 +249,7 @@ export async function generateQuotes(
   transcription: string,
   count: number = 5
 ): Promise<Array<{ quote: string; attribution?: string }>> {
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: 'gpt-4-turbo-preview',
     messages: [
       {
@@ -268,6 +275,6 @@ Return JSON with "quotes" array containing objects with "quote" and optional "at
   return result.quotes || [];
 }
 
-export { openai };
+export { getOpenAI };
 
 

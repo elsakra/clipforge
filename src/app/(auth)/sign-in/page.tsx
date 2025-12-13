@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Sparkles, Loader2, Mail, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function SignInPage() {
+function SignInContent() {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'email' | 'otp'>('email');
@@ -185,3 +185,10 @@ export default function SignInPage() {
   );
 }
 
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <SignInContent />
+    </Suspense>
+  );
+}

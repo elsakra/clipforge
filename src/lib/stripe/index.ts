@@ -1,9 +1,25 @@
 import Stripe from 'stripe';
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-11-20.acacia',
-  typescript: true,
-});
+let stripeInstance: Stripe | null = null;
+
+export function getStripe(): Stripe {
+  if (!stripeInstance) {
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: '2025-11-17.clover',
+      typescript: true,
+    });
+  }
+  return stripeInstance;
+}
+
+// Export as getter for backwards compatibility
+export const stripe = {
+  get customers() { return getStripe().customers; },
+  get subscriptions() { return getStripe().subscriptions; },
+  get checkout() { return getStripe().checkout; },
+  get billingPortal() { return getStripe().billingPortal; },
+  get webhooks() { return getStripe().webhooks; },
+};
 
 // Price IDs for each plan
 export const STRIPE_PRICES = {
