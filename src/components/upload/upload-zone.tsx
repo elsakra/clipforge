@@ -35,7 +35,7 @@ export function UploadZone({ onUploadComplete, onUploadStart, className }: Uploa
     onUploadStart?.();
 
     try {
-      // Get pre-signed upload URL
+      // Get upload URL and method from API
       const response = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -52,43 +52,87 @@ export function UploadZone({ onUploadComplete, onUploadStart, className }: Uploa
         throw new Error(error.error || 'Failed to prepare upload');
       }
 
-      const { uploadUrl, contentId } = await response.json();
+      const { uploadUrl, contentId, uploadMethod, cloudinarySignature } = await response.json();
 
-      // Upload file to R2
       setUploadStatus('uploading');
       
-      const xhr = new XMLHttpRequest();
-      
-      await new Promise<void>((resolve, reject) => {
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            const progress = Math.round((event.loaded / event.total) * 100);
-            setUploadProgress(progress);
-          }
+      let fileUrl: string | undefined;
+
+      if (uploadMethod === 'cloudinary' && cloudinarySignature) {
+        // Cloudinary upload using FormData
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('api_key', cloudinarySignature.apiKey);
+        formData.append('timestamp', cloudinarySignature.timestamp.toString());
+        formData.append('signature', cloudinarySignature.signature);
+        formData.append('folder', cloudinarySignature.folder);
+
+        const xhr = new XMLHttpRequest();
+        
+        const uploadResult = await new Promise<{ secure_url: string }>((resolve, reject) => {
+          xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+              const progress = Math.round((event.loaded / event.total) * 100);
+              setUploadProgress(progress);
+            }
+          });
+
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const result = JSON.parse(xhr.responseText);
+                resolve(result);
+              } catch {
+                reject(new Error('Failed to parse upload response'));
+              }
+            } else {
+              reject(new Error('Upload failed'));
+            }
+          });
+
+          xhr.addEventListener('error', () => reject(new Error('Upload failed')));
+          xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+
+          xhr.open('POST', uploadUrl);
+          xhr.send(formData);
         });
 
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve();
-          } else {
-            reject(new Error('Upload failed'));
-          }
+        fileUrl = uploadResult.secure_url;
+      } else {
+        // Direct upload (R2-style presigned PUT URL)
+        const xhr = new XMLHttpRequest();
+        
+        await new Promise<void>((resolve, reject) => {
+          xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+              const progress = Math.round((event.loaded / event.total) * 100);
+              setUploadProgress(progress);
+            }
+          });
+
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              reject(new Error('Upload failed'));
+            }
+          });
+
+          xhr.addEventListener('error', () => reject(new Error('Upload failed')));
+          xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
+
+          xhr.open('PUT', uploadUrl);
+          xhr.setRequestHeader('Content-Type', file.type);
+          xhr.send(file);
         });
-
-        xhr.addEventListener('error', () => reject(new Error('Upload failed')));
-        xhr.addEventListener('abort', () => reject(new Error('Upload cancelled')));
-
-        xhr.open('PUT', uploadUrl);
-        xhr.setRequestHeader('Content-Type', file.type);
-        xhr.send(file);
-      });
+      }
 
       // Confirm upload completion
       setUploadStatus('processing');
       const confirmResponse = await fetch('/api/upload', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contentId }),
+        body: JSON.stringify({ contentId, fileUrl }),
       });
 
       if (!confirmResponse.ok) {

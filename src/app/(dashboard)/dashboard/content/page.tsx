@@ -43,6 +43,7 @@ interface Content {
 export default function ContentPage() {
   const [contents, setContents] = useState<Content[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -50,50 +51,21 @@ export default function ContentPage() {
   }, []);
 
   const fetchContents = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
       const response = await fetch('/api/content');
       const data = await response.json();
       if (data.success) {
-        setContents(data.contents);
+        setContents(data.contents || []);
+      } else {
+        setError(data.error || 'Failed to load content');
+        setContents([]);
       }
     } catch (error) {
       console.error('Error fetching contents:', error);
-      // Use mock data for demo
-      setContents([
-        {
-          id: '1',
-          title: 'Marketing Strategy Q4 2024',
-          description: 'Quarterly review of marketing initiatives',
-          status: 'ready',
-          duration: 1847,
-          thumbnailUrl: null,
-          sourceType: 'upload',
-          createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          clipCount: 5,
-        },
-        {
-          id: '2',
-          title: 'Product Launch Webinar',
-          description: null,
-          status: 'processing',
-          duration: null,
-          thumbnailUrl: null,
-          sourceType: 'youtube',
-          createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          clipCount: 0,
-        },
-        {
-          id: '3',
-          title: 'Interview with CEO',
-          description: 'Annual company vision discussion',
-          status: 'ready',
-          duration: 3624,
-          thumbnailUrl: null,
-          sourceType: 'upload',
-          createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          clipCount: 8,
-        },
-      ]);
+      setError('Failed to connect to the server');
+      setContents([]);
     } finally {
       setIsLoading(false);
     }
@@ -158,6 +130,24 @@ export default function ContentPage() {
             </Link>
           </Button>
         </div>
+
+        {/* Error State */}
+        {error && (
+          <Card className="p-6 mb-6 border-destructive/50 bg-destructive/5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-destructive" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-destructive">Error loading content</p>
+                <p className="text-sm text-muted-foreground">{error}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={fetchContents}>
+                Retry
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {/* Content List */}
         {isLoading ? (
