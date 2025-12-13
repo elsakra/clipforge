@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="cf" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+  </defs>
+  <!-- ClipForge: Stacked content layers with diagonal cut -->
+  <!-- Back layer -->
+  <rect x="6" y="6" width="14" height="14" rx="3" fill="url(#cf)" opacity="0.4"/>
+  <!-- Middle layer -->
+  <rect x="10" y="10" width="14" height="14" rx="3" fill="url(#cf)" opacity="0.7"/>
+  <!-- Front layer with corner cut representing "clip" -->
+  <path d="M17 14h9a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3z" fill="url(#cf)"/>
+  <!-- Diagonal clip mark -->
+  <path d="M29 14l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+</svg>

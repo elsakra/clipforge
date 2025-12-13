@@ -9,21 +9,52 @@ ClipForge is an AI-powered video repurposing SaaS that turns one video into 100 
 **GitHub Repo**: https://github.com/elsakra/clipforge
 **Vercel Project ID**: prj_SKxePaZ0QqjCcMIvRRYM5aU2i5pt
 
-## Current Status: FULLY FUNCTIONAL - READY FOR DEPLOYMENT
+## Current Status: FULLY FUNCTIONAL - DESIGN OVERHAULED
 
-### Latest Changes (Dec 13)
+### Latest Changes (Dec 13) - Design Overhaul
 
-**Completed all missing functionality**:
-- Fixed upload flow to support both Cloudinary FormData and R2-style uploads
-- Created `/api/import-url` route for YouTube/TikTok URL imports
-- Created `/api/cron/reset-usage` route for monthly usage reset
-- Created `/dashboard/content/[id]` page for content details, clips, and generated posts
-- Created Twitter and LinkedIn OAuth callback routes
-- Removed mock data fallbacks from content page
+**Complete UI/UX redesign** inspired by Airbnb, Figma, and Palantir:
 
-**Build Status**: ✅ Successfully builds with no errors
+1. **New Design Token System** (`globals.css`)
+   - Typography: Manrope (headings) + DM Sans (body) - premium font pairing
+   - Color palette: Deep indigo/violet primary with warm coral accent
+   - 8pt spacing grid with consistent design tokens
+   - Refined shadows, transitions, and animations
+   - Accessible focus states and reduced motion support
 
-### What's Working ✅
+2. **New Logo** (`public/logo.svg`, `public/logo-icon.svg`)
+   - Distinctive geometric mark with stacked layers + clip element
+   - Works at all sizes (favicon to full logo)
+   - Uses brand gradient (violet → purple)
+   - SVG favicon for modern browsers
+
+3. **Landing Page Overhaul** (`src/app/page.tsx`)
+   - Refined hero with better visual hierarchy
+   - Polished feature cards with subtle hover states
+   - Sophisticated testimonials and pricing sections
+   - New Logo component with proper branding
+
+4. **Auth Pages Redesign** (`src/app/(auth)/sign-in/page.tsx`, `sign-up/page.tsx`)
+   - Segmented OTP input with auto-focus and paste support
+   - Auto-submit when OTP is complete
+   - Cleaner card design with refined backgrounds
+   - Benefits section on sign-up page
+
+5. **Dashboard Updates**
+   - Updated sidebar with new logo (`src/components/layout/sidebar.tsx`)
+   - Refined header with glass effect (`src/components/layout/dashboard-header.tsx`)
+   - Polished dashboard page with card hover effects
+   - Consistent spacing and typography throughout
+
+6. **Pricing Page** (`src/app/pricing/page.tsx`)
+   - Updated with new logo and design tokens
+   - Refined card styles and FAQ section
+
+### Build Status: ✅ Successfully builds with no errors
+
+---
+
+## What's Working ✅
 
 1. **Authentication**: Supabase OTP email authentication
 2. **File Uploads**: Cloudinary-based upload with progress tracking
@@ -37,22 +68,44 @@ ClipForge is an AI-powered video repurposing SaaS that turns one video into 100 
 10. **Content Detail Page**: View transcription, clips, and generated posts
 11. **Social OAuth**: Twitter and LinkedIn callback routes
 
-### What Still Needs External Setup 🔴
+---
 
-#### 1. Run Schema in Supabase SQL Editor
+## External Setup Required 🔴
+
+### 1. Run Schema in Supabase SQL Editor
 
 Go to: https://supabase.com/dashboard/project/wxctqlokkmobpnueuvdr/sql
 
 Run the full schema from `supabase/schema.sql` (already includes Supabase Auth support).
 
-#### 2. Enable Email OTP in Supabase
+### 2. Configure Supabase Email Templates for OTP
+
+**IMPORTANT**: To show the OTP code in the email subject line:
+
+1. Go to: https://supabase.com/dashboard/project/wxctqlokkmobpnueuvdr/auth/templates
+2. Select "Magic Link" or "OTP" template
+3. Update the **Subject** field to:
+   ```
+   ClipForge: Your code is {{ .Token }}
+   ```
+4. Update the **Body** to include a better message:
+   ```html
+   <h2>Your ClipForge verification code</h2>
+   <p>Enter this code to sign in:</p>
+   <h1 style="font-size: 32px; letter-spacing: 8px; font-family: monospace;">{{ .Token }}</h1>
+   <p>This code expires in 10 minutes.</p>
+   <p>If you didn't request this, you can safely ignore this email.</p>
+   ```
+5. Click "Save"
+
+### 3. Enable Email OTP in Supabase
 
 1. Go to: https://supabase.com/dashboard/project/wxctqlokkmobpnueuvdr/auth/providers
 2. Enable Email provider
 3. Ensure "Enable email confirmations" is OFF for OTP flow
 4. Ensure "Enable email OTP" is ON
 
-#### 3. Set Vercel Environment Variables
+### 4. Set Vercel Environment Variables
 
 Go to: https://vercel.com/elsakras-projects/clipforge/settings/environment-variables
 
@@ -85,7 +138,7 @@ LINKEDIN_CLIENT_ID=(LinkedIn API credentials)
 LINKEDIN_CLIENT_SECRET=(LinkedIn API credentials)
 ```
 
-#### 4. Set Up Stripe Webhook
+### 5. Set Up Stripe Webhook
 
 1. Go to: https://dashboard.stripe.com/webhooks
 2. Add endpoint: `https://getclipforge.com/api/stripe/webhook`
@@ -105,13 +158,13 @@ clipforge/
 ├── src/
 │   ├── app/
 │   │   ├── (auth)/
-│   │   │   ├── sign-in/page.tsx       # OTP sign-in (Supabase)
-│   │   │   └── sign-up/page.tsx       # OTP sign-up (Supabase)
+│   │   │   ├── sign-in/page.tsx       # OTP sign-in with segmented input
+│   │   │   └── sign-up/page.tsx       # OTP sign-up with benefits
 │   │   ├── auth/
 │   │   │   └── callback/route.ts      # Auth callback handler
 │   │   ├── (dashboard)/
 │   │   │   └── dashboard/
-│   │   │       ├── page.tsx           # Main dashboard
+│   │   │       ├── page.tsx           # Main dashboard (redesigned)
 │   │   │       ├── content/
 │   │   │       │   ├── page.tsx       # Content library
 │   │   │       │   └── [id]/page.tsx  # Content detail view
@@ -119,52 +172,59 @@ clipforge/
 │   │   │       ├── upload/page.tsx    # Upload content
 │   │   │       ├── calendar/page.tsx  # Content calendar
 │   │   │       └── settings/page.tsx  # User settings
-│   │   ├── api/
-│   │   │   ├── auth/
-│   │   │   │   ├── twitter/callback/  # Twitter OAuth
-│   │   │   │   └── linkedin/callback/ # LinkedIn OAuth
-│   │   │   ├── clips/                 # Clips CRUD
-│   │   │   ├── content/               # Content CRUD
-│   │   │   ├── cron/
-│   │   │   │   ├── publish-scheduled/ # Auto-publish posts
-│   │   │   │   └── reset-usage/       # Monthly usage reset
-│   │   │   ├── dashboard/stats/       # Dashboard metrics
-│   │   │   ├── generate/              # AI content generation
-│   │   │   ├── import-url/            # YouTube/TikTok import
-│   │   │   ├── inngest/               # Background jobs
-│   │   │   ├── process/               # Content processing
-│   │   │   ├── publish/               # Social publishing
-│   │   │   ├── schedule/              # Post scheduling
-│   │   │   ├── stripe/                # Payments
-│   │   │   ├── transcribe/            # Audio transcription
-│   │   │   ├── upload/                # File upload
-│   │   │   └── user/                  # User data
-│   │   ├── page.tsx                   # Landing page
-│   │   └── pricing/page.tsx           # Pricing page
+│   │   ├── api/                       # All API routes
+│   │   ├── globals.css                # Design tokens & styles
+│   │   ├── layout.tsx                 # Root layout with fonts
+│   │   ├── page.tsx                   # Landing page (redesigned)
+│   │   └── pricing/page.tsx           # Pricing page (redesigned)
 │   ├── components/
 │   │   ├── layout/
-│   │   │   ├── dashboard-header.tsx
-│   │   │   └── sidebar.tsx
+│   │   │   ├── dashboard-header.tsx   # Dashboard header
+│   │   │   └── sidebar.tsx            # Sidebar with new logo
 │   │   ├── ui/                        # shadcn/ui components
 │   │   └── upload/
 │   │       └── upload-zone.tsx        # File upload component
-│   └── lib/
-│       ├── ai/openai.ts               # OpenAI integration
-│       ├── inngest/                   # Background job functions
-│       ├── replicate/                 # Video processing
-│       ├── social/
-│       │   ├── twitter.ts             # Twitter API
-│       │   └── linkedin.ts            # LinkedIn API
-│       ├── storage/
-│       │   ├── cloudinary.ts          # Cloudinary storage
-│       │   └── r2.ts                  # R2 storage (optional)
-│       ├── stripe/                    # Payments
-│       └── supabase/                  # Database client
+│   └── lib/                           # Utilities and services
+├── public/
+│   ├── logo.svg                       # Full logo
+│   └── logo-icon.svg                  # Icon/favicon
 ├── supabase/
 │   └── schema.sql                     # Database schema
-├── middleware.ts                      # Auth middleware
-└── vercel.json                        # Deployment config
+└── CURSOR_STATUS.md                   # This file
 ```
+
+---
+
+## Design System
+
+### Typography
+- **Display/Headings**: Manrope (700-800 weight, tight tracking)
+- **Body**: DM Sans (400-600 weight, relaxed line height)
+- **Monospace**: SF Mono / Fira Code
+
+### Colors (Dark Mode Default)
+- **Primary**: oklch(0.70 0.22 275) - Vibrant indigo/violet
+- **Accent**: oklch(0.72 0.18 25) - Warm coral
+- **Background**: oklch(0.11 0.015 265) - Deep slate
+- **Card**: oklch(0.145 0.015 265) - Elevated surface
+- **Border**: oklch(0.24 0.015 265) - Subtle dividers
+
+### Spacing (8pt Grid)
+```css
+--space-1: 4px;   --space-2: 8px;   --space-3: 12px;
+--space-4: 16px;  --space-6: 24px;  --space-8: 32px;
+```
+
+### Key Utility Classes
+- `.font-display` - Manrope headings
+- `.text-gradient` - Brand gradient text
+- `.bg-gradient-brand` - Primary gradient background
+- `.glow` / `.glow-sm` - Primary color glow effect
+- `.glass` - Frosted glass effect
+- `.card-hover` - Card hover animation
+- `.press-effect` - Button press scale
+
+---
 
 ## Key Flows
 
@@ -179,8 +239,8 @@ clipforge/
 
 ### Auth Flow (Supabase OTP)
 1. User enters email on `/sign-in` or `/sign-up`
-2. Supabase sends 6-digit OTP code via email
-3. User enters code to verify
+2. Supabase sends 6-digit OTP code via email (subject includes code)
+3. User enters code in segmented input (auto-submits on completion)
 4. On success, Supabase creates session cookie
 5. Middleware checks `supabase.auth.getUser()` for protected routes
 6. User record auto-created in `users` table via trigger
@@ -191,6 +251,8 @@ clipforge/
 3. User completes payment on Stripe
 4. Webhook updates user plan in database
 5. User redirected back with active subscription
+
+---
 
 ## Revenue Model
 
@@ -205,10 +267,19 @@ clipforge/
 
 ## Notes for Next Agent
 
-The codebase is complete and functional. Main tasks:
-1. Ensure environment variables are set in Vercel
-2. Run the database schema in Supabase
-3. Configure Stripe webhook
-4. Test the full flow: sign up → upload → process → view
+The codebase is complete and functional with a new premium design. Main tasks:
+
+1. **Supabase Setup**: Run schema + configure email templates for OTP in subject
+2. **Vercel**: Ensure all environment variables are set
+3. **Stripe**: Configure webhook endpoint
+4. **Testing**: Full flow test: sign up → upload → process → view
 
 The build passes successfully. Push to GitHub and deploy via Vercel.
+
+### Design Notes
+- Uses Manrope + DM Sans (Google Fonts) - preconnected in layout
+- Dark mode is default (class="dark" on html)
+- Logo is SVG-based, works as favicon
+- All components use design tokens from globals.css
+- Press effect (.press-effect) adds subtle scale on click
+- Card hover (.card-hover) adds subtle lift and shadow

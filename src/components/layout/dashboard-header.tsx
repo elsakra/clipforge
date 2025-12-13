@@ -29,21 +29,21 @@ export function DashboardHeader({
   action,
 }: DashboardHeaderProps) {
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-6 bg-background/80 backdrop-blur-sm border-b border-border">
+    <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-6 bg-background/90 backdrop-blur-md border-b border-border/50">
       <div>
-        <h1 className="text-xl font-semibold">{title}</h1>
+        <h1 className="text-xl font-semibold font-display tracking-tight">{title}</h1>
         {description && (
           <p className="text-sm text-muted-foreground">{description}</p>
         )}
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         {showSearch && (
           <div className="relative w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search..."
-              className="pl-9 h-9 bg-secondary/50"
+              className="pl-9 h-9 bg-secondary/50 border-border/50"
             />
           </div>
         )}
@@ -51,27 +51,27 @@ export function DashboardHeader({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
+              <Bell className="w-5 h-5 text-muted-foreground" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-accent" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+            <DropdownMenuLabel className="font-display">Notifications</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
+            <DropdownMenuItem className="flex flex-col items-start gap-1 py-3 cursor-pointer">
               <span className="font-medium">Video processed successfully</span>
               <span className="text-xs text-muted-foreground">
                 Your video &ldquo;Marketing Q4 Review&rdquo; is ready for clipping
               </span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
+            <DropdownMenuItem className="flex flex-col items-start gap-1 py-3 cursor-pointer">
               <span className="font-medium">5 clips generated</span>
               <span className="text-xs text-muted-foreground">
                 AI found 5 viral moments in your latest upload
               </span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="justify-center text-primary">
+            <DropdownMenuItem className="justify-center text-primary cursor-pointer">
               View all notifications
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -80,7 +80,7 @@ export function DashboardHeader({
         {action}
 
         {showUploadButton && (
-          <Button asChild className="gap-2">
+          <Button asChild className="gap-2 press-effect">
             <Link href="/dashboard/upload">
               <Plus className="w-4 h-4" />
               New Upload
@@ -91,5 +91,3 @@ export function DashboardHeader({
     </header>
   );
 }
-
-
